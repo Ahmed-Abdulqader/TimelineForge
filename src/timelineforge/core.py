@@ -215,6 +215,82 @@ class CSVParser(BaseParser):
                     )
         return events
 
+class CustomRegexParser(BaseParser):
+    """
+    A parser for unknown log formats using user-defined regular expressions.
+    
+    The regex should ideally use named capture groups to map fields:
+        - (?P<timestamp>...) : Required. The datetime string.
+        - (?P<message>...)   : Required. The actual log message.
+        - (?P<source>...)    : Optional. The source of the log.
+        - (?P<event_type>...): Optional. The type/category of the event.
+    
+    Example pattern:
+        r"\[(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] \[(?P<source>\w+)\] (?P<message>.*)"
+    """
+
+    def __init__(
+        self, 
+        regex_pattern: str, 
+        date_format: str, 
+        default_source: str = "unknown", 
+        default_event_type: str = "custom"
+    ):
+        self.pattern = re.compile(regex_pattern)
+        self.date_format = date_format
+        self.default_source = default_source
+        self.default_event_type = default_event_type
+
+    def parse(self, file_path: str) -> List[Event]:
+        events = []
+        
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                line_str = line.strip()
+                if not line_str:
+                    continue
+                    
+                match = self.pattern.match(line_str)
+                if match:
+                    group_dict = match.groupdict()
+                    
+                    # If using named groups (Best Practice)
+                    if "timestamp" in group_dict and "message" in group_dict:
+                        raw_ts = group_dict["timestamp"]
+                        msg = group_dict["message"]
+                        source = group_dict.get("source", self.default_source)
+                        event_type = group_dict.get("event_type", self.default_event_type)
+                    
+                    # Fallback: If the user didn't use named groups, assume 
+                    # the first group is the timestamp and the last is the message.
+                    else:
+                        groups = match.groups()
+                        if len(groups) >= 2:
+                            raw_ts = groups[0]
+                            msg = groups[-1]
+                            source = self.default_source
+                            event_type = self.default_event_type
+                        else:
+                            # Not enough captured data to form an Event
+                            continue
+
+                    try:
+                        ts = self.parse_timestamp(raw_ts, self.date_format)
+                        events.append(
+                            Event(
+                                timestamp=ts,
+                                source=source,
+                                event_type=event_type,
+                                message=msg,
+                                raw_line=line_str,
+                            )
+                        )
+                    except ValueError:
+                        # Skip lines where the timestamp cannot be parsed
+                        continue
+                        
+        return events
+
 class Exporter:
     """Handles serializing normalized Timeline objects to CSV or JSON files."""
 
