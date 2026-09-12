@@ -4,7 +4,7 @@ import re
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List, Union
 
 class Event:
     """Represents a single normalized forensic log entry."""
@@ -38,10 +38,6 @@ class Event:
 
     def __repr__(self) -> str:
         return f"<Event {self.timestamp} | {self.source} | {self.event_type}>"
-
-
-from datetime import datetime
-from typing import List, Union
 
 class Timeline:
     """Container and processing engine for forensic Event objects."""
@@ -89,14 +85,6 @@ class Timeline:
 
     def __iter__(self):
         return iter(self.events)
-
-import csv
-import re
-from abc import ABC, abstractmethod
-from datetime import datetime
-from typing import List
-
-# Assuming Event is imported from core/defined above
 
 
 class BaseParser(ABC):
